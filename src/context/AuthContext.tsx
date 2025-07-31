@@ -97,21 +97,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       
-      // Check for admin demo login
-      if (email === 'admin@waqti.com' && password === 'admin123456') {
+      // Check for demo credentials first
+      if ((email === 'admin@waqti.com' && password === 'admin123456') ||
+          (email === 'demo@waqti.com' && password === 'demo123456')) {
         // Create mock admin user
         setUser({
-          id: 'admin',
-          name: 'Admin User',
-          email: 'admin@waqti.com',
+          id: email === 'admin@waqti.com' ? 'admin' : 'demo',
+          name: email === 'admin@waqti.com' ? 'Admin User' : 'Demo User',
+          email: email,
           phone: '+971501234567',
-          balance: 1000,
+          balance: email === 'admin@waqti.com' ? 1000 : 10,
           joinedAt: new Date(),
           avatar: 'https://randomuser.me/api/portraits/men/1.jpg'
         });
         return { success: true };
       }
       
+      // Check if Supabase is properly configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey || 
+          supabaseUrl === 'your_supabase_url_here' || 
+          supabaseKey === 'your_supabase_anon_key_here' ||
+          supabaseUrl.includes('placeholder')) {
+        return { 
+          success: false, 
+          error: 'Supabase not configured. Please use demo credentials: demo@waqti.com / demo123456 or admin@waqti.com / admin123456' 
+        };
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password
@@ -127,8 +142,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (data.user) {
         await fetchUserProfile(data.user.id);
-        // Check if user needs role selection
-        setActivePage('role-selection');
         return { success: true };
       }
 
@@ -152,6 +165,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       setIsLoading(true);
+
+      // Check if Supabase is properly configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey || 
+          supabaseUrl === 'your_supabase_url_here' || 
+          supabaseKey === 'your_supabase_anon_key_here' ||
+          supabaseUrl.includes('placeholder')) {
+        return { 
+          success: false, 
+          error: 'Supabase not configured. Registration is not available in demo mode.' 
+        };
+      }
 
       // First, sign up the user
       const { data: authData, error: signUpError } = await supabase.auth.signUp({

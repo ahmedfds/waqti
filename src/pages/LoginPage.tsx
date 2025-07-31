@@ -51,21 +51,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ setActivePage }) => {
     }
     
     try {
-      // Try mock login first for demo
-      const mockResult = await mockLogin(email, password);
-      if (mockResult.success) {
-        setActivePage('dashboard');
-        setIsSubmitting(false);
-        return;
-      }
-
-      // If mock login fails, try real Supabase login
       const result = await login(email, password);
       
       if (result.success) {
         setActivePage('dashboard');
       } else {
-        setError(mockResult.error || result.error || 'Login failed. Please try again.');
+        setError(result.error || 'Login failed. Please try again.');
       }
     } catch (err) {
       console.error('Login error:', err);
