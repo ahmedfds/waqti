@@ -1,14 +1,16 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
   isLoggedIn: boolean;
   isLoading: boolean;
+  pendingVerification: { email: string; userId: string } | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (name: string, email: string, password: string, phone: string) => Promise<{ success: boolean; error?: string }>;
+  verifyEmail: (code: string) => Promise<{ success: boolean; error?: string }>;
+  resendVerificationCode: () => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<{ success: boolean; error?: string }>;
 }
@@ -22,47 +24,43 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [pendingVerification, setPendingVerification] = useState<{ email: string; userId: string } | null>(null);
   const isLoggedIn = user !== null;
 
   useEffect(() => {
-    // Check active session on mount
-    const getSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('Error getting session:', error);
-          return;
-        }
-        
-        if (session?.user) {
-          await fetchUserProfile(session.user.id);
-        }
-      } catch (error) {
-        console.error('Session check error:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    initializeAuth();
+  }, []);
 
-    getSession();
+  const initializeAuth = async () => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('Error getting session:', error);
+        return;
+      }
+      
+      if (session?.user) {
+        await fetchUserProfile(session.user.id);
+      }
+    } catch (error) {
+      console.error('Session check error:', error);
+    } finally {
+      setIsLoading(false);
+    }
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.id);
-      
       if (event === 'SIGNED_IN' && session?.user) {
         await fetchUserProfile(session.user.id);
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
+        setPendingVerification(null);
       }
-      
       setIsLoading(false);
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
+    return () => subscription.unsubscribe();
+  };
 
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -93,14 +91,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const isSupabaseConfigured = () => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    return supabaseUrl && 
+           supabaseKey && 
+           supabaseUrl !== 'your_supabase_url_here' && 
+           supabaseKey !== 'your_supabase_anon_key_here' &&
+           !supabaseUrl.includes('placeholder');
+  };
+
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       setIsLoading(true);
       
-      // Check for demo credentials first, before any Supabase calls
+      // Handle demo credentials first
       if ((email === 'admin@waqti.com' && password === 'admin123456') ||
           (email === 'demo@waqti.com' && password === 'demo123456')) {
-        // Create mock admin user
         setUser({
           id: email === 'admin@waqti.com' ? 'admin' : 'demo',
           name: email === 'admin@waqti.com' ? 'Admin User' : 'Demo User',
@@ -112,21 +120,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
         return { success: true };
       }
-      
-      // Check for demo credentials first
-      if ((email === 'admin@waqti.com' && password === 'admin123456') ||
-          (email === 'demo@waqti.com' && password === 'demo123456')) {
-        // Create mock admin user
-        setUser({
-          id: email === 'admin@waqti.com' ? 'admin' : 'demo',
-          name: email === 'admin@waqti.com' ? 'Admin User' : 'Demo User',
-          email: email,
-          phone: '+971501234567',
-          balance: email === 'admin@waqti.com' ? 1000 : 10,
-          joinedAt: new Date(),
-          avatar: 'https://randomuser.me/api/portraits/men/1.jpg'
-        });
-        return { success: true };
+
+      // Check if Supabase is configured
+      if (!isSupabaseConfigured()) {
+        return { 
+          success: false, 
+          error: 'Please use demo credentials: demo@waqti.com / demo123456 or admin@waqti.com / admin123456' 
+        };
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -135,10 +135,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (error) {
-        console.error('Login error:', error);
         return { 
           success: false, 
-          error: error.message || 'Login failed. Please check your credentials.' 
+          error: error.message || 'Invalid login credentials' 
         };
       }
 
@@ -168,21 +167,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
 
-      // Check if Supabase is properly configured
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
-      if (!supabaseUrl || !supabaseKey || 
-          supabaseUrl === 'your_supabase_url_here' || 
-          supabaseKey === 'your_supabase_anon_key_here' ||
-          supabaseUrl.includes('placeholder')) {
+      if (!isSupabaseConfigured()) {
         return { 
           success: false, 
-          error: 'Supabase not configured. Registration is not available in demo mode.' 
+          error: 'Registration is not available in demo mode. Please use demo credentials to login.' 
         };
       }
 
-      // First, sign up the user
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return { success: false, error: 'Please enter a valid email address' };
+      }
+
+      // Sign up the user
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -195,7 +193,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (signUpError) {
-        console.error('Signup error:', signUpError);
         return { 
           success: false, 
           error: signUpError.message || 'Registration failed. Please try again.' 
@@ -209,22 +206,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         };
       }
 
-      // Create user profile in our users table
+      // Create user profile
       const { error: profileError } = await supabase
         .from('users')
         .insert([
           {
             id: authData.user.id,
             name: name.trim(),
-            email: email.trim(),
             phone: phone.trim(),
-            balance: 2 // New users start with 2 hours
+            balance: 2
           }
         ]);
 
       if (profileError) {
         console.error('Profile creation error:', profileError);
-        // If profile creation fails, we should clean up the auth user
         await supabase.auth.signOut();
         return { 
           success: false, 
@@ -232,10 +227,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         };
       }
 
-      // If email confirmation is disabled, the user will be automatically signed in
-      if (authData.session) {
-        await fetchUserProfile(authData.user.id);
-      }
+      // Set pending verification state
+      setPendingVerification({
+        email: email.trim(),
+        userId: authData.user.id
+      });
 
       return { success: true };
     } catch (error) {
@@ -249,6 +245,65 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const verifyEmail = async (code: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      setIsLoading(true);
+
+      if (!pendingVerification) {
+        return { success: false, error: 'No pending verification found' };
+      }
+
+      // For demo purposes, accept '123456' as valid code
+      if (code === '123456') {
+        await fetchUserProfile(pendingVerification.userId);
+        setPendingVerification(null);
+        return { success: true };
+      }
+
+      // In real implementation, verify with Supabase
+      const { error } = await supabase.auth.verifyOtp({
+        email: pendingVerification.email,
+        token: code,
+        type: 'signup'
+      });
+
+      if (error) {
+        return { success: false, error: 'Invalid verification code' };
+      }
+
+      await fetchUserProfile(pendingVerification.userId);
+      setPendingVerification(null);
+      return { success: true };
+    } catch (error) {
+      console.error('Email verification error:', error);
+      return { success: false, error: 'Verification failed. Please try again.' };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resendVerificationCode = async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (!pendingVerification) {
+        return { success: false, error: 'No pending verification found' };
+      }
+
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: pendingVerification.email
+      });
+
+      if (error) {
+        return { success: false, error: 'Failed to resend code' };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      return { success: false, error: 'Failed to resend code' };
+    }
+  };
+
   const logout = async () => {
     try {
       setIsLoading(true);
@@ -257,6 +312,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.error('Logout error:', error);
       }
       setUser(null);
+      setPendingVerification(null);
     } catch (error) {
       console.error('Logout exception:', error);
     } finally {
@@ -276,11 +332,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         .eq('id', user.id);
 
       if (error) {
-        console.error('Profile update error:', error);
         return { success: false, error: error.message };
       }
 
-      // Update local user state
       setUser(prev => prev ? { ...prev, ...updates } : null);
       return { success: true };
     } catch (error) {
@@ -293,8 +347,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     isLoggedIn,
     isLoading,
+    pendingVerification,
     login,
     register,
+    verifyEmail,
+    resendVerificationCode,
     logout,
     updateProfile
   };

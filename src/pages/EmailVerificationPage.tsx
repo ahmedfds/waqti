@@ -9,7 +9,7 @@ interface EmailVerificationPageProps {
 }
 
 const EmailVerificationPage: React.FC<EmailVerificationPageProps> = ({ setActivePage }) => {
-  const { user } = useAuth();
+  const { pendingVerification, verifyEmail, resendVerificationCode } = useAuth();
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
@@ -17,6 +17,13 @@ const EmailVerificationPage: React.FC<EmailVerificationPageProps> = ({ setActive
   const [success, setSuccess] = useState(false);
   const [countdown, setCountdown] = useState(60);
   const [canResend, setCanResend] = useState(false);
+
+  useEffect(() => {
+    if (!pendingVerification) {
+      setActivePage('login');
+      return;
+    }
+  }, [pendingVerification, setActivePage]);
 
   useEffect(() => {
     if (countdown > 0 && !canResend) {
@@ -33,16 +40,15 @@ const EmailVerificationPage: React.FC<EmailVerificationPageProps> = ({ setActive
     setError('');
 
     try {
-      // Simulate verification process
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const result = await verifyEmail(verificationCode);
       
-      if (verificationCode === '123456') {
+      if (result.success) {
         setSuccess(true);
         setTimeout(() => {
-          setActivePage('role-selection');
+          setActivePage('dashboard');
         }, 2000);
       } else {
-        setError('Invalid verification code. Please try again.');
+        setError(result.error || 'Verification failed');
       }
     } catch (err) {
       setError('Verification failed. Please try again.');
@@ -56,10 +62,13 @@ const EmailVerificationPage: React.FC<EmailVerificationPageProps> = ({ setActive
     setError('');
 
     try {
-      // Simulate resend process
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setCountdown(60);
-      setCanResend(false);
+      const result = await resendVerificationCode();
+      if (result.success) {
+        setCountdown(60);
+        setCanResend(false);
+      } else {
+        setError(result.error || 'Failed to resend code');
+      }
     } catch (err) {
       setError('Failed to resend code. Please try again.');
     } finally {
@@ -79,10 +88,14 @@ const EmailVerificationPage: React.FC<EmailVerificationPageProps> = ({ setActive
             <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Email Verified!</h2>
-          <p className="text-gray-600">Your email has been successfully verified. Redirecting...</p>
+          <p className="text-gray-600">Your email has been successfully verified. Redirecting to dashboard...</p>
         </motion.div>
       </div>
     );
+  }
+
+  if (!pendingVerification) {
+    return null;
   }
 
   return (
@@ -108,7 +121,7 @@ const EmailVerificationPage: React.FC<EmailVerificationPageProps> = ({ setActive
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Verify Your Email</h2>
             <p className="text-gray-600">
               We've sent a verification code to{' '}
-              <span className="font-medium text-gray-900">{user?.email || 'your email'}</span>
+              <span className="font-medium text-gray-900">{pendingVerification.email}</span>
             </p>
           </div>
 
@@ -126,7 +139,7 @@ const EmailVerificationPage: React.FC<EmailVerificationPageProps> = ({ setActive
               <input
                 type="text"
                 value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value)}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 className="w-full px-4 py-3 text-center text-2xl font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2E86AB] focus:border-transparent"
                 placeholder="000000"
                 maxLength={6}

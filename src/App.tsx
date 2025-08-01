@@ -12,10 +12,6 @@ import WalletPage from './pages/WalletPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import EmailVerificationPage from './pages/EmailVerificationPage';
-import WelcomeWalkthroughPage from './pages/WelcomeWalkthroughPage';
-import EscrowManagementPage from './pages/EscrowManagementPage';
-import SavedSearchesPage from './pages/SavedSearchesPage';
-import ProviderRegistrationPage from './pages/ProviderRegistrationPage';
 import RoleSelectionPage from './pages/RoleSelectionPage';
 import FreelancerVerificationPage from './pages/FreelancerVerificationPage';
 import AboutPage from './pages/AboutPage';
@@ -31,6 +27,8 @@ import MessagesPage from './pages/MessagesPage';
 import NotificationsPage from './pages/NotificationsPage';
 import UserProfilePage from './pages/UserProfilePage';
 import BookingManagementPage from './pages/BookingManagementPage';
+import EscrowManagementPage from './pages/EscrowManagementPage';
+import SavedSearchesPage from './pages/SavedSearchesPage';
 import { LanguageProvider } from './context/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -41,8 +39,7 @@ function AppContent() {
   const [selectedFreelancerId, setSelectedFreelancerId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [previousPage, setPreviousPage] = useState('services');
-  const [showWalkthrough, setShowWalkthrough] = useState(false);
-  const { isLoading } = useAuth();
+  const { isLoading, pendingVerification } = useAuth();
 
   const handleServiceClick = (serviceId: string) => {
     setPreviousPage(activePage);
@@ -75,6 +72,11 @@ function AppContent() {
     setSelectedFreelancerId(null);
     setSelectedUserId(null);
   };
+
+  // Show email verification if pending
+  if (pendingVerification) {
+    return <EmailVerificationPage setActivePage={setActivePage} />;
+  }
 
   const renderPage = () => {
     switch (activePage) {
@@ -116,6 +118,8 @@ function AppContent() {
         return <LoginPage setActivePage={setActivePage} />;
       case 'register':
         return <RegisterPage setActivePage={setActivePage} />;
+      case 'email-verification':
+        return <EmailVerificationPage setActivePage={setActivePage} />;
       case 'role-selection':
         return <RoleSelectionPage setActivePage={setActivePage} />;
       case 'freelancer-verification':
@@ -178,12 +182,6 @@ function AppContent() {
     <div className="min-h-screen bg-gray-50">
       <Header activePage={activePage} setActivePage={setActivePage} />
       {renderPage()}
-      {showWalkthrough && (
-        <WelcomeWalkthroughPage
-          setActivePage={setActivePage}
-          onComplete={() => setShowWalkthrough(false)}
-        />
-      )}
     </div>
   );
 }

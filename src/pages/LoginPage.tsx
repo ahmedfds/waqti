@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { LogIn, Eye, EyeOff } from 'lucide-react';
-import { useLanguage } from '../context/LanguageContext';
+import { motion } from 'framer-motion';
+import { LogIn, Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 
@@ -9,22 +9,12 @@ interface LoginPageProps {
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ setActivePage }) => {
-  const { t, isRTL } = useLanguage();
   const { login, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Mock authentication for demo purposes
-  const mockLogin = async (email: string, password: string) => {
-    // Demo credentials
-    if (email === 'demo@waqti.com' && password === 'demo123456') {
-      return { success: true };
-    }
-    return { success: false, error: 'Invalid credentials. Use demo@waqti.com / demo123456' };
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,14 +34,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ setActivePage }) => {
       return;
     }
 
-    if (!/\S+@\S+\.\S+/.test(email)) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
       setError('Please enter a valid email address');
       setIsSubmitting(false);
       return;
     }
     
     try {
-      const result = await login(email, password);
+      const result = await login(email.trim(), password);
       
       if (result.success) {
         setActivePage('dashboard');
@@ -67,112 +58,98 @@ const LoginPage: React.FC<LoginPageProps> = ({ setActivePage }) => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-12 flex justify-center">
-      <div className="bg-white rounded-xl shadow-md p-6 md:p-8 w-full max-w-md border-t-4 border-[#2E86AB]">
-        <h2 className={`text-2xl font-bold mb-6 text-[#2E86AB] flex items-center justify-center ${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
-          <LogIn className={`${isRTL ? 'ml-2' : 'mr-2'}`} />
-          {t('login.title')}
-        </h2>
-        
-        {error && (
-          <div className="bg-red-100 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6 text-sm">
-            {error}
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-md w-full"
+      >
+        <div className="bg-white rounded-xl shadow-md p-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h2>
+            <p className="text-gray-600">Sign in to your Waqti account</p>
           </div>
-        )}
-        
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className={`block text-gray-700 mb-2 font-medium text-sm md:text-base ${isRTL ? 'text-right' : 'text-left'}`}>
-              {t('login.email')}
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2E86AB] focus:border-transparent"
-              placeholder="Enter your email"
+
+          {error && (
+            <div className="bg-red-100 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6 text-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2E86AB] focus:border-transparent"
+                  placeholder="Enter your email"
+                  disabled={isSubmitting || isLoading}
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2E86AB] focus:border-transparent"
+                  placeholder="Enter your password"
+                  disabled={isSubmitting || isLoading}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  disabled={isSubmitting || isLoading}
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              variant="primary"
+              className="w-full"
+              isLoading={isSubmitting || isLoading}
               disabled={isSubmitting || isLoading}
-              required
-            />
-          </div>
-          
-          <div className="mb-6">
-            <label className={`block text-gray-700 mb-2 font-medium text-sm md:text-base ${isRTL ? 'text-right' : 'text-left'}`}>
-              {t('login.password')}
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 md:py-3 pr-10 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2E86AB] focus:border-transparent"
-                placeholder="Enter your password"
-                disabled={isSubmitting || isLoading}
-                required
-              />
+            >
+              Sign In
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              Don't have an account?{' '}
               <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-2.5 md:top-3.5 text-gray-400 hover:text-gray-600"
+                onClick={() => setActivePage('register')}
+                className="text-[#2E86AB] hover:text-[#1e5f7a] font-medium"
                 disabled={isSubmitting || isLoading}
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                Create account
               </button>
+            </p>
+          </div>
+
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-sm text-blue-800 mb-2 font-medium">Demo Credentials</p>
+            <div className="space-y-1 text-xs text-blue-600">
+              <p><strong>Regular User:</strong> demo@waqti.com / demo123456</p>
+              <p><strong>Admin User:</strong> admin@waqti.com / admin123456</p>
             </div>
           </div>
-          
-          <Button
-            type="submit"
-            variant="primary"
-            className="w-full"
-            isLoading={isSubmitting || isLoading}
-            disabled={isSubmitting || isLoading}
-          >
-            {t('login.button')}
-          </Button>
-        </form>
-        
-        <p className="text-center mt-6 text-sm md:text-base">
-          {t('login.register')} {' '}
-          <button
-            onClick={() => setActivePage('register')}
-            className="text-[#2E86AB] font-medium hover:underline"
-            disabled={isSubmitting || isLoading}
-          >
-            {t('login.registerLink')}
-          </button>
-        </p>
-        
-        <p className="text-center mt-4 text-sm text-gray-600">
-          <button
-            onClick={() => setActivePage('terms')}
-            className="text-[#2E86AB] hover:underline mr-2"
-            disabled={isSubmitting || isLoading}
-          >
-            Terms
-          </button>
-          |
-          <button
-            onClick={() => setActivePage('privacy')}
-            className="text-[#2E86AB] hover:underline ml-2"
-            disabled={isSubmitting || isLoading}
-          >
-            Privacy
-          </button>
-        </p>
-
-        {/* Demo credentials for testing */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-sm text-blue-800 mb-2 font-medium">{t('login.demo')}</p>
-          <p className="text-xs text-blue-600">Email: demo@waqti.com</p>
-          <p className="text-xs text-blue-600">Password: demo123456</p>
-          <div className="mt-2 pt-2 border-t border-blue-200">
-            <p className="text-xs text-blue-600 font-medium">Admin Access:</p>
-            <p className="text-xs text-blue-600">Email: admin@waqti.com</p>
-            <p className="text-xs text-blue-600">Password: admin123456</p>
-          </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };
