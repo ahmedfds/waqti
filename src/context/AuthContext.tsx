@@ -97,7 +97,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       
-      // Check for demo credentials first
+      // Check for demo credentials first, before any Supabase calls
       if ((email === 'admin@waqti.com' && password === 'admin123456') ||
           (email === 'demo@waqti.com' && password === 'demo123456')) {
         // Create mock admin user
@@ -113,20 +113,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return { success: true };
       }
       
-      // Check if Supabase is properly configured
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
-      if (!supabaseUrl || !supabaseKey || 
-          supabaseUrl === 'your_supabase_url_here' || 
-          supabaseKey === 'your_supabase_anon_key_here' ||
-          supabaseUrl.includes('placeholder')) {
-        return { 
-          success: false, 
-          error: 'Supabase not configured. Please use demo credentials: demo@waqti.com / demo123456 or admin@waqti.com / admin123456' 
-        };
-      }
-
+      // Check for demo credentials first
+      if ((email === 'admin@waqti.com' && password === 'admin123456') ||
+          (email === 'demo@waqti.com' && password === 'demo123456')) {
+        // Create mock admin user
+        setUser({
+          id: email === 'admin@waqti.com' ? 'admin' : 'demo',
+          name: email === 'admin@waqti.com' ? 'Admin User' : 'Demo User',
+          email: email,
+          phone: '+971501234567',
+          balance: email === 'admin@waqti.com' ? 1000 : 10,
+          joinedAt: new Date(),
+          avatar: 'https://randomuser.me/api/portraits/men/1.jpg'
+        });
+        return { success: true };
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password
