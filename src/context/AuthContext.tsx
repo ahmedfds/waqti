@@ -127,6 +127,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           avatar: 'https://randomuser.me/api/portraits/men/1.jpg'
         });
         return { success: true };
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password
