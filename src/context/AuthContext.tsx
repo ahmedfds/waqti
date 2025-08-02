@@ -106,7 +106,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       
-      // Handle demo credentials first
+      // Handle demo credentials FIRST - bypass all Supabase calls
       if ((email === 'admin@waqti.com' && password === 'admin123456') ||
           (email === 'demo@waqti.com' && password === 'demo123456')) {
         setUser({
@@ -118,6 +118,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           joinedAt: new Date(),
           avatar: 'https://randomuser.me/api/portraits/men/1.jpg'
         });
+        setIsLoading(false);
         return { success: true };
       }
 
