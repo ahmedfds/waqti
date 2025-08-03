@@ -1,262 +1,215 @@
-/**
- * ServicesPage component
- * 
- * This component renders a page with a list of services, filters and search bar.
- * 
- * @param {Object} props - Component props
- * @param {Function} props.onServiceClick - Function to call when a service is clicked
- * @returns {ReactElement} - ServicesPage component
- */
-const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
-  const { t, isRTL } = useLanguage();
-  const [services, setServices] = useState<Service[]>([]);
-  const [filteredServices, setFilteredServices] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [selectedLocation, setSelectedLocation] = useState<string>('');
-  const [minRating, setMinRating] = useState<number>(0);
-  const [maxHours, setMaxHours] = useState<number>(10);
-  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+           <div className="md:col-span-2">
+                <label className="block text-gray-700 font-medium mb-2">Description</label>
+                <textarea
+                  {...formik.getFieldProps('description')}
+                  rows={4}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2E86AB]"
+                  placeholder="Describe your service in detail..."
+                />
+                {formik.touched.description && formik.errors.description && (
+                  <div className="text-red-600 text-sm mt-1">{formik.errors.description}</div>
+                )}
+              </div>
 
-  /**
-   * List of categories
-   */
-  const categories = [
-    'Design',
-    'Teaching', 
-    'Programming',
-    'Translation',
-    'Writing',
-    'Music',
-    'Cooking',
-    'Photography'
-  ];
-
-  /**
-   * List of locations
-   */
-  const locations = useMemo(() => {
-    const locationsSet = new Set<string>();
-    services.forEach(service => locationsSet.add(service.location));
-    return Array.from(locationsSet);
-  }, [services]);
-
-  // Fetch services from Supabase
-  useEffect(() => {
-    const fetchServices = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('services')
-          .select(`
-            *,
-            users!services_provider_id_fkey(*)
-          `);
-
-        if (error) {
-          console.error('Error fetching services:', error);
-          return;
-        }
-
-        const formattedServices: Service[] = data?.map(service => ({
-          id: service.id,
-          title: service.title,
-          description: service.description,
-          category: service.category,
-          provider: {
-            id: service.users.id,
-            name: service.users.name,
-            email: service.users.email || '',
-            phone: service.users.phone || '',
-            balance: service.users.balance || 0,
-            joinedAt: new Date(service.users.created_at),
-            avatar: service.users.avatar_url
-          },
-          hourlyRate: service.hourly_rate,
-          location: service.location,
-          rating: service.rating || 0,
-          reviews: service.reviews_count || 0,
-          image: service.image_url || 'https://images.pexels.com/photos/3861958/pexels-photo-3861958.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1'
-        })) || [];
-
-        setServices(formattedServices);
-      } catch (err) {
-        console.error('Error fetching services:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchServices();
-  }, []);
-
-  // Apply filters
-  useEffect(() => {
-    let result = [...services];
-    
-    // Apply search term filter
-    if (searchTerm) {
-      result = result.filter((service) => 
-        service.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.provider.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    // Apply category filter
-    if (selectedCategory) {
-      result = result.filter((service) => service.category === selectedCategory);
-    }
-    
-    // Apply location filter
-    if (selectedLocation) {
-      result = result.filter((service) => service.location === selectedLocation);
-    }
-    
-    // Apply rating filter
-    if (minRating > 0) {
-      result = result.filter((service) => service.rating >= minRating);
-    }
-    
-    // Apply max hours filter
-    if (maxHours < 10) {
-      result = result.filter((service) => service.hourlyRate <= maxHours);
-    }
-    
-    setFilteredServices(result);
-  }, [searchTerm, selectedCategory, selectedLocation, minRating, maxHours, services]);
-
-  /**
-   * Clear filters
-   */
-  const clearFilters = () => {
-    setSearchTerm('');
-    setSelectedCategory('');
-    setSelectedLocation('');
-    setMinRating(0);
-    setMaxHours(10);
-    setIsMobileFilterOpen(false);
-  };
-
-  /**
-   * Check if there are any active filters
-   */
-  const hasActiveFilters = selectedCategory || selectedLocation || minRating > 0 || maxHours < 10;
-
-  return (
-    <div className="container mx-auto px-4 py-8 md:py-12">
-      <h1 className={`text-2xl md:text-3xl font-bold mb-6 md:mb-8 text-[#2E86AB] ${isRTL ? 'text-right' : 'text-left'}`}>
-        {t('services.all')}
-      </h1>
-      
-      {/* Search and Filter Bar */}
-      <div className="flex flex-col lg:flex-row gap-4 mb-6 md:mb-8">
-        <div className="relative flex-1">
-          <input
-            type="text"
-            placeholder={t('services.search')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 text-sm md:text-base border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-[#2E86AB] focus:border-transparent"
-          />
-          <Search className="absolute left-3 top-3.5 text-gray-400" size={18} />
-        </div>
-        
-        <div className="flex gap-2">
-          <Button 
-            variant="secondary"
-            leftIcon={<Filter size={18} />}
-            onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
-            className="lg:hidden flex-1 md:flex-none"
-          >
-            {t('services.filters')}
-          </Button>
-          
-          {hasActiveFilters && (
-            <Button 
-              variant="outline"
-              onClick={clearFilters}
-              className="whitespace-nowrap"
-              leftIcon={<X size={16} />}
-            >
-              {t('services.clearFilters')}
-            </Button>
-          )}
-        </div>
-      </div>
-      
-      {/* Main content area with filters and services */}
-      <div className="flex flex-col lg:flex-row gap-6 md:gap-8">
-        {/* Filters Panel */}
-        <div className={`lg:block ${isMobileFilterOpen ? 'block' : 'hidden'} lg:w-1/4 bg-white p-4 md:p-6 rounded-xl shadow-md h-fit`}>
-          <div className="flex justify-between items-center mb-4 lg:block">
-            <h3 className="text-lg font-semibold text-[#2E86AB]">{t('services.filters')}</h3>
-            <button
-              onClick={() => setIsMobileFilterOpen(false)}
-              className="lg:hidden text-gray-500 hover:text-gray-700"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          
-          {/* Category Filter */}
-          <div className="mb-6">
-            <h4 className="font-medium mb-2 text-sm md:text-base">{t('services.category')}</h4>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full p-2 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2E86AB] focus:border-transparent"
-            >
-              <option value="">All Categories</option>
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          {/* Location Filter */}
-          <div className="mb-6">
-            <h4 className="font-medium mb-2 text-sm md:text-base">{t('services.location')}</h4>
-            <select
-              value={selectedLocation}
-              onChange={(e) => setSelectedLocation(e.target.value)}
-              className="w-full p-2 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2E86AB] focus:border-transparent"
-            >
-              <option value="">All Locations</option>
-              {locations.map((location) => (
-                <option key={location} value={location}>
-                  {location}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          {/* Rating Filter */}
-          <div className="mb-6">
-            <h4 className="font-medium mb-2 text-sm md:text-base">{t('services.rating')}</h4>
-            <div className="flex items-center">
-              <input
-                type="range"
-                min="0"
-                max="5"
-                step="1"
-                value={minRating}
-                onChange={(e) => setMinRating(Number(e.target.value))}
-                className="w-full"
-              />
-              <span className="ml-2 w-8 text-center text-sm md:text-base">{minRating}</span>
+              <div className="md:col-span-2">
+                <label className="block text-gray-700 font-medium mb-2">Keywords (for search)</label>
+                <input
+                  type="text"
+                  {...formik.getFieldProps('keywords')}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2E86AB]"
+                  placeholder="e.g., web development, react, javascript, frontend"
+                />
+                {formik.touched.keywords && formik.errors.keywords && (
+                  <div className="text-red-600 text-sm mt-1">{formik.errors.keywords}</div>
+                )}
+              </div>
             </div>
           </div>
-          
-          {/* Max Hours Filter */}
-          <div className="mb-6">
-            <h4 className="font-medium mb-2 text-sm md:text-base">{t('services.maxHours')}</h4>
-            <div className="flex items-center">
-              <input
-                type="range"
-                min="1"
-                
 
+          {/* Exchange Type & Pricing */}
+          <div className="bg-gray-50 p-6 rounded-lg">
+            <h2 className="text-xl font-semibold mb-4 text-[#2E86AB]">Exchange Type & Pricing</h2>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">Exchange Type</label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {exchangeTypes.map(type => (
+                    <label key={type.value} className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:border-[#2E86AB]">
+                      <input
+                        type="radio"
+                        name="exchangeType"
+                        value={type.value}
+                        checked={formik.values.exchangeType === type.value}
+                        onChange={formik.handleChange}
+                        className="mr-3"
+                      />
+                      <span>{type.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {formik.touched.exchangeType && formik.errors.exchangeType && (
+                  <div className="text-red-600 text-sm mt-1">{formik.errors.exchangeType}</div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-2">Time Rate (Hours)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    {...formik.getFieldProps('hourlyRate')}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2E86AB]"
+                  />
+                  {formik.touched.hourlyRate && formik.errors.hourlyRate && (
+                    <div className="text-red-600 text-sm mt-1">{formik.errors.hourlyRate}</div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-medium mb-2">Service Duration (Hours)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    {...formik.getFieldProps('duration')}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2E86AB]"
+                  />
+                  {formik.touched.duration && formik.errors.duration && (
+                    <div className="text-red-600 text-sm mt-1">{formik.errors.duration}</div>
+                  )}
+                </div>
+              </div>
+
+              {(formik.values.exchangeType === 'money' || formik.values.exchangeType === 'hybrid') && (
+                <div>
+                  <label className="block text-gray-700 font-medium mb-2">Money Price (USD)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    {...formik.getFieldProps('moneyPrice')}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2E86AB]"
+                    placeholder="Enter price in USD"
+                  />
+                  {formik.touched.moneyPrice && formik.errors.moneyPrice && (
+                    <div className="text-red-600 text-sm mt-1">{formik.errors.moneyPrice}</div>
+                  )}
+                </div>
+              )}
+
+              {(formik.values.exchangeType === 'time' || formik.values.exchangeType === 'hybrid') && (
+                <div>
+                  <label className="block text-gray-700 font-medium mb-2">Suggested Services for Exchange</label>
+                  <textarea
+                    {...formik.getFieldProps('suggestedExchange')}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2E86AB]"
+                    placeholder="e.g., Graphic design, content writing, social media management..."
+                  />
+                  {formik.touched.suggestedExchange && formik.errors.suggestedExchange && (
+                    <div className="text-red-600 text-sm mt-1">{formik.errors.suggestedExchange}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Media Upload */}
+          <div className="bg-gray-50 p-6 rounded-lg">
+            <h2 className="text-xl font-semibold mb-4 text-[#2E86AB]">Media & Portfolio</h2>
+            
+            <div className="space-y-6">
+              {/* Images */}
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">Images (Max 5)</label>
+                <div
+                  {...getImageRootProps()}
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-[#2E86AB]"
+                >
+                  <input {...getImageInputProps()} />
+                  <Upload className="mx-auto mb-2 text-gray-400" size={24} />
+                  <p className="text-gray-600">Drop images here or click to upload</p>
+                  <p className="text-sm text-gray-500">PNG, JPG, GIF up to 10MB each</p>
+                </div>
+                
+                {images.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                    {images.map((file, index) => (
+                      <div key={index} className="relative">
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Videos */}
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">Videos (Max 2)</label>
+                <div
+                  {...getVideoRootProps()}
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-[#2E86AB]"
+                >
+                  <input {...getVideoInputProps()} />
+                  <Camera className="mx-auto mb-2 text-gray-400" size={24} />
+                  <p className="text-gray-600">Drop videos here or click to upload</p>
+                  <p className="text-sm text-gray-500">MP4, MOV, AVI up to 50MB each</p>
+                </div>
+                
+                {videos.length > 0 && (
+                  <div className="space-y-2 mt-4">
+                    {videos.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg">
+                        <span className="text-sm truncate">{file.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeVideo(index)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Submit */}
+          <div className="flex justify-between">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setActivePage('dashboard')}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              isLoading={isSubmitting}
+              leftIcon={<Plus size={18} />}
+            >
+              Create Service
+            </Button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
+
+export default CreateServicePage;
