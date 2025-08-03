@@ -1,15 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Filter, X } from 'lucide-react';
-import { Service } from '../types';
-import { useLanguage } from '../context/LanguageContext';
-import ServiceCard from '../components/ServiceCard';
-import Button from '../components/Button';
-import { supabase } from '../lib/supabase';
-
-interface ServicesPageProps {
-  onServiceClick: (serviceId: string) => void;
-}
-
+/**
+ * ServicesPage component
+ * 
+ * This component renders a page with a list of services, filters and search bar.
+ * 
+ * @param {Object} props - Component props
+ * @param {Function} props.onServiceClick - Function to call when a service is clicked
+ * @returns {ReactElement} - ServicesPage component
+ */
 const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
   const { t, isRTL } = useLanguage();
   const [services, setServices] = useState<Service[]>([]);
@@ -22,7 +19,6 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
   const [maxHours, setMaxHours] = useState<number>(10);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
-  // TODO: Replace with real categories from Supabase
   const categories = [
     'Design',
     'Teaching', 
@@ -34,7 +30,11 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
     'Photography'
   ];
 
-  const [locations, setLocations] = useState<string[]>([]);
+  const locations = useMemo(() => {
+    const locationsSet = new Set<string>();
+    services.forEach(service => locationsSet.add(service.location));
+    return Array.from(locationsSet);
+  }, [services]);
 
   // Fetch services from Supabase
   useEffect(() => {
@@ -74,7 +74,6 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
         })) || [];
 
         setServices(formattedServices);
-        setLocations(Array.from(new Set(formattedServices.map(service => service.location))));
       } catch (err) {
         console.error('Error fetching services:', err);
       } finally {
@@ -120,7 +119,6 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
     }
     
     setFilteredServices(result);
-  }, [searchTerm, selectedCategory, selectedLocation, minRating, maxHours]);
   }, [searchTerm, selectedCategory, selectedLocation, minRating, maxHours, services]);
 
   const clearFilters = () => {
@@ -254,60 +252,3 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
                 onChange={(e) => setMaxHours(Number(e.target.value))}
                 className="w-full"
               />
-              <span className="ml-2 w-8 text-center text-sm md:text-base">{maxHours}</span>
-            </div>
-          </div>
-          
-          <Button
-            variant="secondary"
-            className="w-full"
-            onClick={clearFilters}
-          >
-            {t('services.clearFilters')}
-          </Button>
-        </div>
-        
-        {/* Services Grid */}
-        <div className="flex-1">
-          {loading ? (
-            <div className="text-center py-12 md:py-16 bg-white rounded-xl shadow-sm">
-              <div className="max-w-md mx-auto px-4">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2E86AB] mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading services...</p>
-              </div>
-            </div>
-          ) : filteredServices.length === 0 ? (
-            <div className="text-center py-12 md:py-16 bg-white rounded-xl shadow-sm">
-              <div className="max-w-md mx-auto px-4">
-                <h3 className="text-lg md:text-xl font-semibold mb-2">No services found</h3>
-                <p className="text-gray-600 mb-4 text-sm md:text-base">
-                  {services.length === 0 ? 'No services available yet.' : 'Try adjusting your filters.'}
-                </p>
-                <Button variant="secondary" onClick={clearFilters}>
-                  Clear Filters
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="mb-4 text-sm text-gray-600">
-                {filteredServices.length} {filteredServices.length === 1 ? 'service' : 'services'} found
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
-                {filteredServices.map((service) => (
-                  <ServiceCard
-                    key={service.id}
-                    service={service}
-                    onClick={() => onServiceClick(service.id)}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default ServicesPage;
