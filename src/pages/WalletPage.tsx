@@ -4,7 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import TransactionItem from '../components/TransactionItem';
-import { transactions } from '../data/mockData';
+import { supabase } from '../lib/supabase';
 
 const WalletPage: React.FC = () => {
   const { t, isRTL } = useLanguage();
@@ -13,6 +13,49 @@ const WalletPage: React.FC = () => {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [amount, setAmount] = useState(1);
   const [email, setEmail] = useState('');
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch transactions from Supabase
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching transactions:', error);
+          return;
+        }
+
+        const formattedTransactions: Transaction[] = data?.map(transaction => ({
+          id: transaction.id,
+          type: transaction.type as 'credit' | 'debit',
+          amount: transaction.amount,
+          description: transaction.description,
+          date: new Date(transaction.created_at),
+          serviceId: transaction.service_id,
+          receiverId: transaction.receiver_id
+        })) || [];
+
+        setTransactions(formattedTransactions);
+      } catch (err) {
+        console.error('Error fetching transactions:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTransactions();
+  }, [user?.id]);
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -63,16 +106,29 @@ const WalletPage: React.FC = () => {
           {t('wallet.history')}
         </h3>
         
-        <div className="space-y-2">
-          {transactions.slice(0, 5).map((transaction) => (
-            <TransactionItem key={transaction.id} transaction={transaction} />
-          ))}
-        </div>
-        
-        {transactions.length > 5 && (
-          <div className="text-center mt-6">
-            <Button variant="secondary">View All Transactions</Button>
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#2E86AB] mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading transactions...</p>
           </div>
+        ) : transactions.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-600">No transactions yet</p>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-2">
+              {transactions.slice(0, 5).map((transaction) => (
+                <TransactionItem key={transaction.id} transaction={transaction} />
+              ))}
+            </div>
+            
+            {transactions.length > 5 && (
+              <div className="text-center mt-6">
+                <Button variant="secondary">View All Transactions</Button>
+              </div>
+            )}
+          </>
         )}
       </div>
       

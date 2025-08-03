@@ -4,7 +4,7 @@ import { Service } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
-import { services } from '../data/mockData';
+import { supabase } from '../lib/supabase';
 
 interface ServiceDetailPageProps {
   serviceId: string;
@@ -20,9 +20,69 @@ const ServiceDetailPage: React.FC<ServiceDetailPageProps> = ({ serviceId, setAct
   const [time, setTime] = useState('');
   const [duration, setDuration] = useState(1);
   
-  // Find the selected service
-  const service = services.find((s) => s.id === serviceId);
+  const [service, setService] = useState<Service | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch service from Supabase
+  useEffect(() => {
+    const fetchService = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('services')
+          .select(`
+            *,
+            users!services_provider_id_fkey(*)
+          `)
+          .eq('id', serviceId)
+          .single();
+
+        if (error) {
+          console.error('Error fetching service:', error);
+          return;
+        }
+
+        if (data) {
+          const formattedService: Service = {
+            id: data.id,
+            title: data.title,
+            description: data.description,
+            category: data.category,
+            provider: {
+              id: data.users.id,
+              name: data.users.name,
+              email: data.users.email || '',
+              phone: data.users.phone || '',
+              balance: data.users.balance || 0,
+              joinedAt: new Date(data.users.created_at),
+              avatar: data.users.avatar_url
+            },
+            hourlyRate: data.hourly_rate,
+            location: data.location,
+            rating: data.rating || 0,
+            reviews: data.reviews_count || 0,
+            image: data.image_url || 'https://images.pexels.com/photos/3861958/pexels-photo-3861958.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1'
+          };
+          setService(formattedService);
+        }
+      } catch (err) {
+        console.error('Error fetching service:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchService();
+  }, [serviceId]);
   
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2E86AB] mx-auto mb-4"></div>
+        <p className="text-gray-600">Loading service...</p>
+      </div>
+    );
+  }
+
   if (!service) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">

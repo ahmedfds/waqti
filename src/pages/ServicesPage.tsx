@@ -4,7 +4,7 @@ import { Service } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import ServiceCard from '../components/ServiceCard';
 import Button from '../components/Button';
-import { services, categories } from '../data/mockData';
+import { supabase } from '../lib/supabase';
 
 interface ServicesPageProps {
   onServiceClick: (serviceId: string) => void;
@@ -12,7 +12,9 @@ interface ServicesPageProps {
 
 const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
   const { t, isRTL } = useLanguage();
-  const [filteredServices, setFilteredServices] = useState<Service[]>(services);
+  const [services, setServices] = useState<Service[]>([]);
+  const [filteredServices, setFilteredServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedLocation, setSelectedLocation] = useState<string>('');
@@ -20,8 +22,68 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
   const [maxHours, setMaxHours] = useState<number>(10);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
-  // Extract unique locations from services
-  const locations = Array.from(new Set(services.map((service) => service.location)));
+  // TODO: Replace with real categories from Supabase
+  const categories = [
+    'Design',
+    'Teaching', 
+    'Programming',
+    'Translation',
+    'Writing',
+    'Music',
+    'Cooking',
+    'Photography'
+  ];
+
+  const [locations, setLocations] = useState<string[]>([]);
+
+  // Fetch services from Supabase
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('services')
+          .select(`
+            *,
+            users!services_provider_id_fkey(*)
+          `);
+
+        if (error) {
+          console.error('Error fetching services:', error);
+          return;
+        }
+
+        const formattedServices: Service[] = data?.map(service => ({
+          id: service.id,
+          title: service.title,
+          description: service.description,
+          category: service.category,
+          provider: {
+            id: service.users.id,
+            name: service.users.name,
+            email: service.users.email || '',
+            phone: service.users.phone || '',
+            balance: service.users.balance || 0,
+            joinedAt: new Date(service.users.created_at),
+            avatar: service.users.avatar_url
+          },
+          hourlyRate: service.hourly_rate,
+          location: service.location,
+          rating: service.rating || 0,
+          reviews: service.reviews_count || 0,
+          image: service.image_url || 'https://images.pexels.com/photos/3861958/pexels-photo-3861958.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1'
+        })) || [];
+
+        setServices(formattedServices);
+        setLocations(Array.from(new Set(formattedServices.map(service => service.location))));
+      } catch (err) {
+        console.error('Error fetching services:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchServices();
+  }, []);
 
   // Apply filters
   useEffect(() => {
@@ -59,6 +121,7 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
     
     setFilteredServices(result);
   }, [searchTerm, selectedCategory, selectedLocation, minRating, maxHours]);
+  }, [searchTerm, selectedCategory, selectedLocation, minRating, maxHours, services]);
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -206,13 +269,22 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
         
         {/* Services Grid */}
         <div className="flex-1">
-          {filteredServices.length === 0 ? (
+          {loading ? (
             <div className="text-center py-12 md:py-16 bg-white rounded-xl shadow-sm">
               <div className="max-w-md mx-auto px-4">
-                <h3 className="text-lg md:text-xl font-semibold mb-2">{t('services.noResults')}</h3>
-                <p className="text-gray-600 mb-4 text-sm md:text-base">{t('services.adjustFilters')}</p>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2E86AB] mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading services...</p>
+              </div>
+            </div>
+          ) : filteredServices.length === 0 ? (
+            <div className="text-center py-12 md:py-16 bg-white rounded-xl shadow-sm">
+              <div className="max-w-md mx-auto px-4">
+                <h3 className="text-lg md:text-xl font-semibold mb-2">No services found</h3>
+                <p className="text-gray-600 mb-4 text-sm md:text-base">
+                  {services.length === 0 ? 'No services available yet.' : 'Try adjusting your filters.'}
+                </p>
                 <Button variant="secondary" onClick={clearFilters}>
-                  {t('services.clearFilters')}
+                  Clear Filters
                 </Button>
               </div>
             </div>

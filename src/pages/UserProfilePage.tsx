@@ -3,7 +3,7 @@ import { Edit, Star, MapPin, Calendar, Award, MessageSquare, Shield } from 'luci
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import Button from '../components/Button';
-import { services } from '../data/mockData';
+import { supabase } from '../lib/supabase';
 
 interface UserProfilePageProps {
   setActivePage: (page: string) => void;
@@ -15,6 +15,9 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({ setActivePage, userId
   const { isRTL } = useLanguage();
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
+
+  const [userServices, setUserServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Mock user data - in real app, fetch based on userId
   const profileUser = userId ? {
@@ -37,8 +40,61 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({ setActivePage, userId
     identityVerified: true
   } : user;
 
-  const userServices = services.filter(service => service.provider.id === profileUser?.id);
   const isOwnProfile = !userId || userId === user?.id;
+
+  // Fetch user services from Supabase
+  useEffect(() => {
+    const fetchUserServices = async () => {
+      if (!profileUser?.id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('services')
+          .select(`
+            *,
+            users!services_provider_id_fkey(*)
+          `)
+          .eq('provider_id', profileUser.id);
+
+        if (error) {
+          console.error('Error fetching user services:', error);
+          return;
+        }
+
+        const formattedServices: Service[] = data?.map(service => ({
+          id: service.id,
+          title: service.title,
+          description: service.description,
+          category: service.category,
+          provider: {
+            id: service.users.id,
+            name: service.users.name,
+            email: service.users.email || '',
+            phone: service.users.phone || '',
+            balance: service.users.balance || 0,
+            joinedAt: new Date(service.users.created_at),
+            avatar: service.users.avatar_url
+          },
+          hourlyRate: service.hourly_rate,
+          location: service.location,
+          rating: service.rating || 0,
+          reviews: service.reviews_count || 0,
+          image: service.image_url || 'https://images.pexels.com/photos/3861958/pexels-photo-3861958.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1'
+        })) || [];
+
+        setUserServices(formattedServices);
+      } catch (err) {
+        console.error('Error fetching user services:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserServices();
+  }, [profileUser?.id]);
 
   const mockReviews = [
     {
@@ -283,7 +339,12 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({ setActivePage, userId
                   )}
                 </div>
                 
-                {userServices.length === 0 ? (
+                {loading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#2E86AB] mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading services...</p>
+                  </div>
+                ) : userServices.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-gray-600">No services offered yet</p>
                   </div>

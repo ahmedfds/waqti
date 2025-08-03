@@ -4,7 +4,6 @@ import { Service } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import ServiceCard from '../components/ServiceCard';
 import Button from '../components/Button';
-import { services } from '../data/mockData';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 
@@ -20,10 +19,8 @@ const HomePage: React.FC<HomePageProps> = ({ setActivePage, onServiceClick }) =>
   const [servicesRef, servicesInView] = useInView({ triggerOnce: true });
   const [howItWorksRef, howItWorksInView] = useInView({ triggerOnce: true });
   
-  // Get popular services (top 6 by rating)
-  const popularServices = [...services]
-    .sort((a, b) => b.rating - a.rating)
-    .slice(0, 6);
+  // TODO: Replace with real Supabase data fetching
+  const popularServices: Service[] = [];
 
   const fadeInUp = {
     hidden: { opacity: 0, y: 20 },
@@ -129,7 +126,7 @@ const HomePage: React.FC<HomePageProps> = ({ setActivePage, onServiceClick }) =>
           transition={{ duration: 0.6, delay: 0.2 }}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6"
         >
-          {popularServices.map((service, index) => (
+          {popularServices.length > 0 ? popularServices.map((service, index) => (
             <motion.div
               key={service.id}
               variants={fadeInUp}
@@ -142,7 +139,11 @@ const HomePage: React.FC<HomePageProps> = ({ setActivePage, onServiceClick }) =>
                 onClick={() => onServiceClick(service.id)}
               />
             </motion.div>
-          ))}
+          )) : (
+            <div className="col-span-full text-center py-8">
+              <p className="text-gray-600">Services will be displayed here once Supabase integration is complete.</p>
+            </div>
+          )}
         </motion.div>
         
         <motion.div 
