@@ -249,6 +249,3 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
                 max="10"
                 step="1"
                 value={maxHours}
-                onChange={(e) => setMaxHours(Number(e.target.value))}
-                className="w-full"
-              />
