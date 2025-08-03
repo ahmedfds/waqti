@@ -258,5 +258,5 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
               <input
                 type="range"
                 min="1"
-                max="10"
+                
 
