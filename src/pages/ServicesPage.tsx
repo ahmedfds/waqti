@@ -245,7 +245,3 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
             <div className="flex items-center">
               <input
                 type="range"
-                min="1"
-                max="10"
-                step="1"
-                value={maxHours}
