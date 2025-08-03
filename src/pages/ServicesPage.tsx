@@ -19,6 +19,9 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
   const [maxHours, setMaxHours] = useState<number>(10);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
+  /**
+   * List of categories
+   */
   const categories = [
     'Design',
     'Teaching', 
@@ -30,6 +33,9 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
     'Photography'
   ];
 
+  /**
+   * List of locations
+   */
   const locations = useMemo(() => {
     const locationsSet = new Set<string>();
     services.forEach(service => locationsSet.add(service.location));
@@ -121,6 +127,9 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
     setFilteredServices(result);
   }, [searchTerm, selectedCategory, selectedLocation, minRating, maxHours, services]);
 
+  /**
+   * Clear filters
+   */
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedCategory('');
@@ -130,6 +139,9 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
     setIsMobileFilterOpen(false);
   };
 
+  /**
+   * Check if there are any active filters
+   */
   const hasActiveFilters = selectedCategory || selectedLocation || minRating > 0 || maxHours < 10;
 
   return (
@@ -238,3 +250,13 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
               <span className="ml-2 w-8 text-center text-sm md:text-base">{minRating}</span>
             </div>
           </div>
+          
+          {/* Max Hours Filter */}
+          <div className="mb-6">
+            <h4 className="font-medium mb-2 text-sm md:text-base">{t('services.maxHours')}</h4>
+            <div className="flex items-center">
+              <input
+                type="range"
+                min="1"
+                max="10"
+
