@@ -238,10 +238,3 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ onServiceClick }) => {
               <span className="ml-2 w-8 text-center text-sm md:text-base">{minRating}</span>
             </div>
           </div>
-          
-          {/* Max Hours Filter */}
-          <div className="mb-6">
-            <h4 className="font-medium mb-2 text-sm md:text-base">{t('services.maxHours')}</h4>
-            <div className="flex items-center">
-              <input
-                type="range"
